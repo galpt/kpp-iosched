@@ -1,30 +1,47 @@
-# kpp-iosched
+# KPP
 
-KPP is a separate multiqueue scheduler cloned from Kyber. It shows as kpp next to kyber in the scheduler file for each device, and the original Kyber code stays untouched.
+Kyber is calm under light load and sharp when tuned well. KPP, short for Kyber plus plus, starts from that strength and pushes it further. It is an attempt to keep performance steady and latency low when the storage path is under heavy load.
 
-The baseline is Linux 7.3-rc3. Backport notes for older trees live in the patch header.
+Under load, old requests can block fresh ones. New I/O waits behind tired heads and the tail of the latency curve grows. KPP answers with a bounded LIFO discipline on both ends of the queue. Fresh work gets a fast lane, old work still gets forced progress, and every hot path stays constant time.
 
-## Layout
+KPP lives next to Kyber. It shows as kpp beside kyber in the scheduler file for each device. The original Kyber code stays untouched, so you can switch back at any time.
 
-- `patches/7.3/0001-kpp-add-KPP-scheduler.patch` holds the distributable patch. It applies with patch or with git apply.
-- `src/kpp-iosched.c` holds the new block source.
-- `src/kpp-trace.h` holds the new trace header.
+> [!NOTE]
+> This project is not for beginners. You are expected to already know how to work with patch files and won't have a problem doing file backup/restore processes. You are welcome to be an early tester and your feedback would be greatly appreciated.
 
-## What stays the same
+## What is KPP
 
-All constants match Kyber, and there are no new tunables. Queue depths stay at 256 for reads, 128 for writes, 64 for discards, and 16 for other types. Latency targets stay at 2ms for reads, 10ms for writes, and 5s for discards. Batch sizes stay at 16 for reads, 8 for writes, 1 for discards, and 1 for other types.
+KPP is a multiqueue scheduler cloned from Kyber. It keeps every Kyber constant and every Kyber target. It changes only the order in which queued work is inserted and drained.
 
-## What changes
+The container is still plain lists built on `list_head`. The discipline is no longer plain FIFO. It is bounded LIFO on both insert and drain with forced progress for old entries. Correctness still rests with the flush and host paths. Requests are never dropped and never move across domains.
 
-Only two small deltas ride on top of Kyber behavior.
+Insert uses seven head inserts plus one tail insert in each group of eight. Drain uses seven tail takes plus one head take in each group of eight. Requests marked `AT_HEAD` stay exempt and always go to the head. Flush moves work with `splice_tail` in chunks of at most eight and resumes with a cursor. Merge scans in reverse with a cap of eight. The timer sums at most eight CPUs per run and rearms when more remain. Every step stays O(1) from end to end.
 
-First, insert position uses bounded LIFO reuse. Storage stays FIFO, order within each domain is not persistence order, and correctness still rests with the flush and host context paths. Requests are never dropped and never move across domains.
+All constants match Kyber and there are no new tunables. Queue depths stay at 256 for reads, 128 for writes, 64 for discards and 16 for other types. Latency targets stay at 2ms for reads, 10ms for writes and 5s for discards. Batch sizes stay at 16 for reads, 8 for writes, 1 for discards and 1 for other types.
 
-Second, dispatch and timer work stay capped at constant cost, so each stays O(1). Dispatch splices at most 8 busy queues per pass and resumes with a cursor. The timer sums at most 8 CPUs per run and rearms when more remain. Targets stay unchanged.
+## Why try bounded LIFO
 
-## Build
+Plain FIFO feels fair until the queue fills. Then old heads block new arrivals and fresh reads pay the price. Tail latency spreads and interactive work stutters.
 
-To build a whole kernel, pick the patch that matches your tree and apply it in a clean tree, then enable the KPP option. Then build as usual. Patches live under patches with one directory per version, and src holds the 7.3 reference while patches stay authoritative per version.
+Bounded LIFO gives fresh work a fast lane without starving old work. Seven fast takes plus one forced old take keeps the bound tight. The worst case wait stays predictable while the common case stays quick. The result should be steadier throughput and a shorter tail when load is high.
+
+## Who is this for
+
+This tree is for testers who already build kernels and already read blktrace output with ease. You should be at home with patch files and with backup and restore of your own tree.
+
+Early testers are welcome and feedback is deeply valued. Please share fio numbers, traces and notes on your device mix. Your reports will shape the next round of tuning.
+
+## When and where it lives
+
+Baselines cover 6.18, 7.0, 7.1, 7.2 and 7.3. Patches live under patches with one directory per version. Each directory holds the full patch for that tree. The src directory holds the 7.3 reference sources for easy reading. The per version patch stays authoritative for its own tree.
+
+The current reference is Linux 7.3 rc3. Backport notes for older trees live in the patch header. The 7.0 baseline comes from the Fedora tree.
+
+The distributable patch is `patches/7.3/0001-kpp-add-KPP-scheduler.patch`. The readable sources are `src/kpp-iosched.c` and `src/kpp-trace.h`. Use the patch that matches your tree and keep src for review only.
+
+## How to build a patched kernel
+
+Pick the patch that matches your tree. Apply it in a clean tree and check that it applies cleanly. Then enable the KPP option and build as usual.
 
 ```sh
 cd /path/to/linux-7.3-rc3
@@ -33,11 +50,11 @@ patch -p1 -N -F 10 < /path/to/kpp-iosched/patches/7.3/0001-kpp-add-KPP-scheduler
 make -j$(nproc)
 ```
 
-Enable CONFIG_MQ_IOSCHED_KPP in menuconfig. The default is on. Git apply check also passes. For other trees, use the matching directory from patches/6.18, patches/7.0, patches/7.1, patches/7.2, and patches/7.3. The 7.0 baseline comes from the Fedora tree.
+Open menuconfig and enable `CONFIG_MQ_IOSCHED_KPP`. The default is on.
 
-## Fast rebuild
+## How to rebuild fast during tests
 
-After patching, you can rebuild only the module without a full kernel build. This needs a patched tree with the module option set as module, not a pristine tree.
+After patching, you can rebuild only the module without a full kernel build. This needs a patched tree with the module option set as module.
 
 ```sh
 cd /path/to/linux-7.3-rc3/block
@@ -46,9 +63,13 @@ sudo insmod kpp-iosched.ko
 echo kpp > /sys/block/<dev>/queue/scheduler
 ```
 
-## Checks
+## How to select KPP and fall back
 
-Output was validated with checkpatch in the 7.3-rc3 tree. The block source reports the same one error and six warnings as Kyber, and the trace header reports the same 24 errors as the Kyber trace header for macro style. There are zero new reports from the KPP deltas.
+After build, the scheduler file lists kpp next to kyber. Echo kpp to try KPP and echo kyber to return to Kyber. Fallback is runtime selection of kyber or removal of the two wiring lines and the two new files.
+
+## How it is checked
+
+Output was validated with checkpatch in the 7.3 rc3 tree. The block source reports the same one error and six warnings as Kyber. The trace header reports the same 24 errors as the Kyber trace header for macro style. There are zero new reports from the KPP deltas.
 
 Run these commands from the tree root.
 
@@ -57,14 +78,12 @@ perl scripts/checkpatch.pl --no-tree --file block/kpp-iosched.c
 perl scripts/checkpatch.pl --patch --strict patches/7.3/0001-kpp-add-KPP-scheduler.patch
 ```
 
-## Use
+Apply checks pass with patch dry run and with git apply check. Build checks still need your own toolchain run.
 
-After build, the scheduler file lists kpp next to kyber. You can echo kpp or echo kyber to switch at runtime. Fallback is runtime selection of kyber or removal of the two wiring lines and the two new files.
+## What still needs testing
 
-## Verification still required
-
-Build still needs your toolchain check with a full 7.3 build and the object build. Bring up still needs null block tests, fio p99, blktrace cadence, lockdep, and scale checks on large context and CPU counts. Backport series for older trees still need separate review if you need them.
+Bring up still needs null_blk tests, fio p99 runs, blktrace cadence checks and lockdep runs. Scale checks on large context and CPU counts are still open. Backport series for older trees still need separate review if you need them.
 
 ## Credits
 
-Credits go to the developers who implemented the original Kyber. That is Omar Sandoval in 2017 at Facebook, plus the Linux block community who reviewed and maintained it. The Kyber file header carries Copyright 2017 Facebook with no individual name in the file, but history records Omar as author. KPP only clones that work with small deltas.
+Credits go to Omar Sandoval who wrote Kyber in 2017 at Facebook. Thanks also go to the Linux block community who reviewed and maintained it through later trees. The Kyber file header carries Copyright 2017 Facebook and history records Omar as author. KPP only clones that work with small deltas.
