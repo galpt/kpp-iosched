@@ -1,4 +1,4 @@
-From 2a78152830c435e8771329fc988427ba4fa3ccf8 Mon Sep 17 00:00:00 2001
+From f23996e9aa0655a23b6489a56d5a1ecf7d68ede7 Mon Sep 17 00:00:00 2001
 From: KPP <kpp@local>
 Date: Sun, 20 Sep 2026 00:00:31 +0700
 Subject: [PATCH] kpp: add KPP (kyber++) scheduler as selectable alternative to
@@ -22,17 +22,19 @@ Functional deltas (frozen constants, no retune):
 
 Depths 256/128/64/16, targets 2ms/10ms/5s, batches 16/8/1/1
 identical to kyber. No new tunables. No generic changes.
-Baseline linux-7.3-rc3.
-Version shims for 7.3-rc3: keeps HCTX sparse macros and
-alloc and free ops, timer uses for_each_possible_cpu_wrap.
+Baseline linux-7.1.
+Version shims for 7.1: keeps alloc_sched_data and
+free_sched_data, queue async_depth, limit uses blk_mq_is_sync_read,
+no async_depth show, no HCTX sparse macros, timer uses
+for_each_possible_cpu_wrap.
 
 Signed-off-by: KPP <kpp@local>
 ---
  block/Kconfig.iosched      |   14 +
  block/Makefile             |    1 +
- block/kpp-iosched.c        | 1214 ++++++++++++++++++++++++++++++++++++
+ block/kpp-iosched.c        | 1211 ++++++++++++++++++++++++++++++++++++
  include/trace/events/kpp.h |   95 +++
- 4 files changed, 1324 insertions(+)
+ 4 files changed, 1321 insertions(+)
  create mode 100644 block/kpp-iosched.c
  create mode 100644 include/trace/events/kpp.h
 
@@ -62,10 +64,10 @@ index 27f1132..a6fced0 100644
  	tristate "BFQ I/O scheduler"
  	select BLK_ICQ
 diff --git a/block/Makefile b/block/Makefile
-index e7bd320..1d126f1 100644
+index 7dce2e4..75949dd 100644
 --- a/block/Makefile
 +++ b/block/Makefile
-@@ -25,6 +25,7 @@ obj-$(CONFIG_BLK_CGROUP_IOLATENCY)	+= blk-iolatency.o
+@@ -22,6 +22,7 @@ obj-$(CONFIG_BLK_CGROUP_IOLATENCY)	+= blk-iolatency.o
  obj-$(CONFIG_BLK_CGROUP_IOCOST)	+= blk-iocost.o
  obj-$(CONFIG_MQ_IOSCHED_DEADLINE)	+= mq-deadline.o
  obj-$(CONFIG_MQ_IOSCHED_KYBER)	+= kyber-iosched.o
@@ -75,16 +77,16 @@ index e7bd320..1d126f1 100644
  
 diff --git a/block/kpp-iosched.c b/block/kpp-iosched.c
 new file mode 100644
-index 0000000..232314b
+index 0000000..4665e9f
 --- /dev/null
 +++ b/block/kpp-iosched.c
-@@ -0,0 +1,1214 @@
+@@ -0,0 +1,1211 @@
 +// SPDX-License-Identifier: GPL-2.0
 +/*
 + * The KPP I/O scheduler (kyber++). Controls latency by throttling queue
 + * depths using scalable techniques.
 + *
-+ * Derived from block/kyber-iosched.c (Linux 7.3-rc3); see that file for
++ * Derived from block/kyber-iosched.c (Linux 7.1); see that file for
 + * origin. KPP coexists with kyber: all symbols/strings renamed kyber->kpp.
 + *
 + * Copyright (C) 2017 Facebook
@@ -1140,9 +1142,6 @@ index 0000000..232314b
 +};
 +#undef KPP_LAT_ATTR
 +
-+#define HCTX_FROM_SEQ_FILE(m) ((struct blk_mq_hw_ctx *)(m)->private)
-+#define KPP_HCTX_DATA(hctx) ((struct kpp_hctx_data *)(hctx)->sched_data)
-+
 +#ifdef CONFIG_BLK_DEBUG_FS
 +#define KPP_DEBUGFS_DOMAIN_ATTRS(domain, name)			\
 +static int kpp_##name##_tokens_show(void *data, struct seq_file *m)	\
@@ -1155,7 +1154,7 @@ index 0000000..232314b
 +}									\
 +									\
 +static void *kpp_##name##_rqs_start(struct seq_file *m, loff_t *pos)	\
-+	__acquires(&KPP_HCTX_DATA(HCTX_FROM_SEQ_FILE(m))->lock)	\
++	__acquires(&khd->lock)						\
 +{									\
 +	struct blk_mq_hw_ctx *hctx = m->private;			\
 +	struct kpp_hctx_data *khd = hctx->sched_data;			\
@@ -1174,7 +1173,7 @@ index 0000000..232314b
 +}									\
 +									\
 +static void kpp_##name##_rqs_stop(struct seq_file *m, void *v)	\
-+	__releases(&KPP_HCTX_DATA(HCTX_FROM_SEQ_FILE(m))->lock)	\
++	__releases(&khd->lock)						\
 +{									\
 +	struct blk_mq_hw_ctx *hctx = m->private;			\
 +	struct kpp_hctx_data *khd = hctx->sched_data;			\

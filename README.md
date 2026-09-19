@@ -24,7 +24,7 @@ Second, dispatch and timer work stay capped at constant cost, so each stays O(1)
 
 ## Build
 
-To build a whole kernel, apply the patch in a clean 7.3-rc3 tree and enable the KPP option. Then build as usual.
+To build a whole kernel, pick the patch that matches your tree and apply it in a clean tree, then enable the KPP option. Then build as usual. Patches live under patches with one directory per version, and src holds the 7.3 reference while patches stay authoritative per version.
 
 ```sh
 cd /path/to/linux-7.3-rc3
@@ -33,7 +33,7 @@ patch -p1 -N -F 10 < /path/to/kpp-iosched/patches/7.3/0001-kpp-add-KPP-scheduler
 make -j$(nproc)
 ```
 
-Enable CONFIG_MQ_IOSCHED_KPP in menuconfig. The default is on. Git apply check also passes.
+Enable CONFIG_MQ_IOSCHED_KPP in menuconfig. The default is on. Git apply check also passes. For other trees, use the matching directory from patches/6.18, patches/7.0, patches/7.1, patches/7.2, and patches/7.3. The 7.0 baseline comes from the Fedora tree.
 
 ## Fast rebuild
 

@@ -219,6 +219,13 @@ struct kpp_hctx_data {
 	 * Wrap handled by sbitmap (start >= depth restarts at 0).
 	 */
 	unsigned int flush_cursor[KPP_NUM_DOMAINS];
+	/*
+	 * Drain sequence per domain (KPP delta, O(1)): bounded-LIFO drain
+	 * cadence 7 tail + 1 head per KPP_LIFO_PERIOD. Protected by @lock
+	 * (held by dispatch); advance only on successful take, wrap forces
+	 * head. AT_HEAD-marked takes bypass without advancing.
+	 */
+	u32 drain_seq[KPP_NUM_DOMAINS];
 };
 
 static int kpp_domain_wake(wait_queue_entry_t *wait, unsigned mode, int flags,
@@ -251,6 +258,25 @@ static unsigned int kpp_sched_domain(blk_opf_t opf)
 static bool kpp_take_head(struct kpp_ctx_queue *kcq, unsigned int sched_domain)
 {
 	u32 seq = kcq->lifo_seq[sched_domain]++;
+
+	if (seq == (u32)-1)
+		return false;
+	return (seq & (KPP_LIFO_PERIOD - 1)) != (KPP_LIFO_PERIOD - 1);
+}
+
+/*
+ * Bounded-LIFO drain helper (KPP delta, O(1)): true means take from tail.
+ * 7 tail + 1 head per KPP_LIFO_PERIOD (mask test, no loop, no alloc, no
+ * sleep). Called with khd->lock held at both dispatch sites; call only
+ * after token acquired and list confirmed non-empty so the increment
+ * counts only successful takes (throttled/empty peeks do not advance).
+ * Counter wrap forces head. AT_HEAD-marked takes bypass this helper
+ * without advancing.
+ */
+static bool kpp_take_tail_for_drain(struct kpp_hctx_data *khd,
+				    unsigned int sched_domain)
+{
+	u32 seq = khd->drain_seq[sched_domain]++;
 
 	if (seq == (u32)-1)
 		return false;
@@ -568,6 +594,7 @@ static int kpp_init_hctx(struct blk_mq_hw_ctx *hctx, unsigned int hctx_idx)
 		INIT_LIST_HEAD(&khd->domain_wait[i].wait.entry);
 		atomic_set(&khd->wait_index[i], 0);
 		khd->flush_cursor[i] = 0;
+		khd->drain_seq[i] = 0;
 	}
 
 	khd->cur_domain = 0;
@@ -603,6 +630,32 @@ static int rq_get_domain_token(struct request *rq)
 static void rq_set_domain_token(struct request *rq, int token)
 {
 	rq->elv.priv[0] = (void *)(long)token;
+}
+
+/*
+ * AT_HEAD marker via rq->elv.priv[1] (KPP delta, O(1)): struct request
+ * carries elv.priv[2] (include/linux/blk-mq.h); KPP uses priv[0] for the
+ * domain token like kyber, so priv[1] is free while KPP is active
+ * (mq-deadline uses only priv[0], bfq uses both but never shares a
+ * request with KPP). No side map, no extra list, no alloc, no sleep.
+ * Set under kcq->lock at insert, peeked/cleared under khd->lock at
+ * dispatch; handoff is safe (insert touches kcq list, dispatch touches
+ * khd list, flush moves under khd->lock then kcq->lock). Cleared in
+ * prepare to avoid stale reuse of static_rqs tags.
+ */
+static bool rq_is_at_head(struct request *rq)
+{
+	return rq->elv.priv[1] != NULL;
+}
+
+static void rq_set_at_head(struct request *rq)
+{
+	rq->elv.priv[1] = (void *)1;
+}
+
+static void rq_clear_at_head(struct request *rq)
+{
+	rq->elv.priv[1] = NULL;
 }
 
 static void rq_clear_domain_token(struct kpp_queue_data *kqd,
@@ -646,6 +699,7 @@ static bool kpp_bio_merge(struct request_queue *q, struct bio *bio,
 static void kpp_prepare_request(struct request *rq)
 {
 	rq_set_domain_token(rq, -1);
+	rq_clear_at_head(rq);
 }
 
 static void kpp_insert_requests(struct blk_mq_hw_ctx *hctx,
@@ -665,10 +719,13 @@ static void kpp_insert_requests(struct blk_mq_hw_ctx *hctx,
 		if (flags & BLK_MQ_INSERT_AT_HEAD) {
 			/* Exempt: AT_HEAD keeps head position, no advance. */
 			list_move(&rq->queuelist, head);
+			rq_set_at_head(rq);
 		} else if (kpp_take_head(kcq, sched_domain)) {
 			list_move(&rq->queuelist, head);
+			rq_clear_at_head(rq);
 		} else {
 			list_move_tail(&rq->queuelist, head);
+			rq_clear_at_head(rq);
 		}
 		sbitmap_set_bit(&khd->kcq_map[sched_domain],
 				rq->mq_ctx->index_hw[hctx->type]);
@@ -848,11 +905,27 @@ kpp_dispatch_cur_domain(struct kpp_queue_data *kqd,
 	 * leave the requests in the kcqs so that they can be merged. Note that
 	 * khd->lock serializes the flushes, so if we observed any bit set in
 	 * the kcq_map, we will always get a request.
+	 *
+	 * Bounded-LIFO drain (KPP delta, O(1)): AT_HEAD-marked head bypasses
+	 * without advancing drain_seq; otherwise 7 tail + 1 head per
+	 * KPP_LIFO_PERIOD via kpp_take_tail_for_drain (wrap forces head).
+	 * Advance only on successful take (after token, list non-empty).
+	 * No alloc, no sleep, lock order khd->kcq unchanged.
 	 */
 	rq = list_first_entry_or_null(rqs, struct request, queuelist);
 	if (rq) {
 		nr = kpp_get_domain_token(kqd, khd, hctx);
 		if (nr >= 0) {
+			if (rq_is_at_head(rq)) {
+				rq_clear_at_head(rq);
+			} else if (kpp_take_tail_for_drain(khd,
+							   khd->cur_domain)) {
+				rq = list_last_entry(rqs, struct request,
+						     queuelist);
+				rq_clear_at_head(rq);
+			} else {
+				rq_clear_at_head(rq);
+			}
 			khd->batching++;
 			rq_set_domain_token(rq, nr);
 			list_del_init(&rq->queuelist);
@@ -866,6 +939,16 @@ kpp_dispatch_cur_domain(struct kpp_queue_data *kqd,
 		if (nr >= 0) {
 			kpp_flush_busy_kcqs(khd, khd->cur_domain, rqs);
 			rq = list_first_entry(rqs, struct request, queuelist);
+			if (rq_is_at_head(rq)) {
+				rq_clear_at_head(rq);
+			} else if (kpp_take_tail_for_drain(khd,
+							   khd->cur_domain)) {
+				rq = list_last_entry(rqs, struct request,
+						     queuelist);
+				rq_clear_at_head(rq);
+			} else {
+				rq_clear_at_head(rq);
+			}
 			khd->batching++;
 			rq_set_domain_token(rq, nr);
 			list_del_init(&rq->queuelist);

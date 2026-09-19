@@ -1,4 +1,4 @@
-From 2a78152830c435e8771329fc988427ba4fa3ccf8 Mon Sep 17 00:00:00 2001
+From 75418462335542a27fd70f00ce57edd872a5a048 Mon Sep 17 00:00:00 2001
 From: KPP <kpp@local>
 Date: Sun, 20 Sep 2026 00:00:31 +0700
 Subject: [PATCH] kpp: add KPP (kyber++) scheduler as selectable alternative to
@@ -22,8 +22,8 @@ Functional deltas (frozen constants, no retune):
 
 Depths 256/128/64/16, targets 2ms/10ms/5s, batches 16/8/1/1
 identical to kyber. No new tunables. No generic changes.
-Baseline linux-7.3-rc3.
-Version shims for 7.3-rc3: keeps HCTX sparse macros and
+Baseline linux-7.2-rc6.
+Version shims for 7.2-rc6: keeps HCTX sparse macros and
 alloc and free ops, timer uses for_each_possible_cpu_wrap.
 
 Signed-off-by: KPP <kpp@local>
@@ -75,7 +75,7 @@ index e7bd320..1d126f1 100644
  
 diff --git a/block/kpp-iosched.c b/block/kpp-iosched.c
 new file mode 100644
-index 0000000..232314b
+index 0000000..0566f20
 --- /dev/null
 +++ b/block/kpp-iosched.c
 @@ -0,0 +1,1214 @@
@@ -84,7 +84,7 @@ index 0000000..232314b
 + * The KPP I/O scheduler (kyber++). Controls latency by throttling queue
 + * depths using scalable techniques.
 + *
-+ * Derived from block/kyber-iosched.c (Linux 7.3-rc3); see that file for
++ * Derived from block/kyber-iosched.c (Linux 7.2-rc6); see that file for
 + * origin. KPP coexists with kyber: all symbols/strings renamed kyber->kpp.
 + *
 + * Copyright (C) 2017 Facebook
