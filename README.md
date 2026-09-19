@@ -7,8 +7,8 @@ Under load, old requests can block fresh ones. New I/O waits behind tired heads 
 KPP lives next to Kyber. It shows as kpp beside kyber in the scheduler file for each device. The original Kyber code stays untouched, so you can switch back at any time.
 
 > [!NOTE]
-> 1. This project is not for beginners. You are expected to already know how to work with patch files and won't have a problem doing file backup/restore processes. You are welcome to be an early tester and your feedback would be greatly appreciated.
-> 2. This project is tested on a machine running CachyOS. If you use a different distro, please make sure the patch applies cleanly to the kernel version for the distro you use, and back up your tree before you apply it.
+> 1. This project is not for beginners. You are expected to already know how to work with patch files and won't have a problem backing up and restoring important files from your machine in case data loss happens. You are welcome to be an early tester and your feedback would be greatly appreciated.
+> 2. This project is tested on a machine running CachyOS. If you use a different distro, please make sure the patch applies cleanly to the kernel version for the distro you use, and back up important files from your machine before you test it.
 
 ## What is KPP
 
@@ -28,7 +28,7 @@ Bounded LIFO gives fresh work a fast lane without starving old work. Seven fast 
 
 ## Who is this for
 
-This tree is for testers who already build kernels and already read blktrace output with ease. You should be at home with patch files and with backup and restore of your own tree.
+This project is for testers who already build kernels and already read blktrace output with ease. You should be at home with patch files and with backing up and restoring important files from your machine.
 
 Early testers are welcome and feedback is deeply valued. Please share fio numbers, traces and notes on your device mix. Your reports will shape the next round of tuning.
 
