@@ -1,0 +1,18 @@
+# seqread 128K job (templated).
+# Substituted at runtime by run_fast.sh: __QD__ __RUNTIME__ __RAMP__ __FILENAME__.
+# Fixed: direct=1, libaio, numjobs=1, size=4G, time_based, group_reporting.
+[global]
+direct=1
+ioengine=libaio
+numjobs=1
+size=4G
+time_based
+group_reporting
+runtime=__RUNTIME__
+ramp_time=__RAMP__
+iodepth=__QD__
+filename=__FILENAME__
+
+[seqread-128k]
+rw=read
+bs=128k

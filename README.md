@@ -85,6 +85,24 @@ Apply checks pass with patch dry run and with git apply check. Build checks stil
 
 Bring up still needs null_blk tests, fio p99 runs, blktrace cadence checks and lockdep runs. Scale checks on large context and CPU counts are still open. Backport series for older trees still need separate review if you need them.
 
+## Benchmarks
+
+Early numbers come from a live desktop under load on an NVME 512GB drive with kernel 7.2.6 plus KPP. The harness lives in benchmarks with run scripts plus job files plus plot scripts plus raw JSON, so anyone can rerun it.
+
+Figure 1 compares KPP against Kyber on 4k random reads at queue depth 8. KPP measured plus 1.6 percent throughput with minus 2.7 percent p99, and both schedulers showed hairline range bars across reps.
+
+![Figure 1. KPP versus Kyber on 4k random reads](benchmarks/charts/fig1_kyber_vs_kpp.png)
+
+Figure 2 widens the same pair across read, write, mixed, and sequential patterns from the same desktop view. Only the read panel is conclusive. The write and mixed panels show wide range bars on both schedulers because the shared test file fragmented under writes on btrfs with compression, so those means are reported as variance, not as wins.
+
+![Figure 2. KPP versus Kyber across patterns from a desktop under load](benchmarks/charts/fig2_patterns_kyber_vs_kpp.png)
+
+Figure 3 places all six schedulers side by side on prepped 4k random reads. Kyber and KPP sit together near 52k IOPS with tight bars. BFQ trails slightly near 49k. MQ deadline holds steady near 25k. Adios and none each lost one rep to late session instability, so their means underread and their bars tell that story openly. The p99 panel uses a log scale for the same reason.
+
+![Figure 3. All schedulers on 4k random reads with prepped file](benchmarks/charts/fig3_all_scheds_randread_qd8.png)
+
+The deep queue pair at queue depth 32 degraded symmetrically on both schedulers late in the session, so it is excluded as inconclusive rather than charted as signal. The under load latency claim still needs that rerun on a fresh window with per pattern files.
+
 ## Credits
 
 Credits go to Omar Sandoval who wrote Kyber in 2017 at Facebook. Thanks also go to the Linux block community who reviewed and maintained it through later trees. The Kyber file header carries Copyright 2017 Facebook and history records Omar as author. KPP only clones that work with small deltas.
