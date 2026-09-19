@@ -7,10 +7,8 @@ Under load, old requests can block fresh ones. New I/O waits behind tired heads 
 KPP lives next to Kyber. It shows as kpp beside kyber in the scheduler file for each device. The original Kyber code stays untouched, so you can switch back at any time.
 
 > [!NOTE]
-> This project is not for beginners. You are expected to already know how to work with patch files and won't have a problem doing file backup/restore processes. You are welcome to be an early tester and your feedback would be greatly appreciated.
-
-> [!NOTE]
-> This project is tested on a machine running CachyOS. If you use another distro, please make sure the patch applies cleanly to the kernel version for the distro you use, and back up your tree before you apply it.
+> 1. This project is not for beginners. You are expected to already know how to work with patch files and won't have a problem doing file backup/restore processes. You are welcome to be an early tester and your feedback would be greatly appreciated.
+> 2. This project is tested on a machine running CachyOS. If you use a different distro, please make sure the patch applies cleanly to the kernel version for the distro you use, and back up your tree before you apply it.
 
 ## What is KPP
 
