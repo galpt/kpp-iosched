@@ -42,10 +42,7 @@ diff --git a/block/Kconfig.iosched b/block/Kconfig.iosched
 index 27f1132..a6fced0 100644
 --- a/block/Kconfig.iosched
 +++ b/block/Kconfig.iosched
-@@ -16,6 +16,20 @@ config MQ_IOSCHED_KYBER
- 	  synchronous writes, it will self-tune queue depths to achieve that
- 	  goal.
- 
+@@ -19,1 +19,15 @@
 +config MQ_IOSCHED_KPP
 +	tristate "KPP I/O scheduler"
 +	default y
@@ -61,20 +58,13 @@ index 27f1132..a6fced0 100644
 +	  batch sizes are identical to Kyber. No new tunables.
 +
  config IOSCHED_BFQ
- 	tristate "BFQ I/O scheduler"
- 	select BLK_ICQ
 diff --git a/block/Makefile b/block/Makefile
 index c65f4da..4f58e98 100644
 --- a/block/Makefile
 +++ b/block/Makefile
-@@ -22,6 +22,7 @@ obj-$(CONFIG_BLK_CGROUP_IOLATENCY)	+= blk-iolatency.o
- obj-$(CONFIG_BLK_CGROUP_IOCOST)	+= blk-iocost.o
- obj-$(CONFIG_MQ_IOSCHED_DEADLINE)	+= mq-deadline.o
- obj-$(CONFIG_MQ_IOSCHED_KYBER)	+= kyber-iosched.o
+@@ -25,1 +25,2 @@
 +obj-$(CONFIG_MQ_IOSCHED_KPP)	+= kpp-iosched.o
  bfq-y				:= bfq-iosched.o bfq-wf2q.o bfq-cgroup.o
- obj-$(CONFIG_IOSCHED_BFQ)	+= bfq.o
- 
 diff --git a/block/kpp-iosched.c b/block/kpp-iosched.c
 new file mode 100644
 index 0000000..1311571

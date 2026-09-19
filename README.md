@@ -9,6 +9,9 @@ KPP lives next to Kyber. It shows as kpp beside kyber in the scheduler file for 
 > [!NOTE]
 > This project is not for beginners. You are expected to already know how to work with patch files and won't have a problem doing file backup/restore processes. You are welcome to be an early tester and your feedback would be greatly appreciated.
 
+> [!NOTE]
+> This project is tested on a machine running CachyOS. If you use another distro, please make sure the patch applies cleanly to the kernel version for the distro you use, and back up your tree before you apply it.
+
 ## What is KPP
 
 KPP is a multiqueue scheduler cloned from Kyber. It keeps every Kyber constant and every Kyber target. It changes only the order in which queued work is inserted and drained.
