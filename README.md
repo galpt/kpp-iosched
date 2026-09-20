@@ -16,7 +16,7 @@ KPP is a multiqueue scheduler cloned from Kyber. It keeps every Kyber constant a
 
 The container is still plain lists built on `list_head`. The discipline is no longer plain FIFO. It is bounded LIFO on both insert and drain with forced progress for old entries. Correctness still rests with the flush and host paths. Requests are never dropped and never move across domains.
 
-Insert uses seven head inserts plus one tail insert in each group of eight. Drain uses seven tail takes plus one head take in each group of eight. Requests marked `AT_HEAD` stay exempt and always go to the head. Flush moves work with `splice_tail` in chunks of at most eight and resumes with a cursor. Merge scans in reverse with a cap of eight. The timer sums at most eight CPUs per run and rearms when more remain. Every step stays O(1) from end to end.
+Insert uses seven head inserts plus one tail insert in each group of eight. Drain uses seven tail takes plus one head take in each group of eight. Requests marked `AT_HEAD` stay exempt and always go to the head. Flush moves work with `splice_tail` in chunks of at most eight and resumes with a cursor. Merge scans in reverse with a cap of eight. The timer aggregates at most eight CPUs per firing and evaluates targets only on full cycle completion, rearming only while uncovered CPUs remain. Every step stays O(1) from end to end.
 
 All constants match Kyber and there are no new tunables. Queue depths stay at 256 for reads, 128 for writes, 64 for discards and 16 for other types. Latency targets stay at 2ms for reads, 10ms for writes and 5s for discards. Batch sizes stay at 16 for reads, 8 for writes, 1 for discards and 1 for other types.
 
@@ -79,11 +79,11 @@ perl scripts/checkpatch.pl --no-tree --file block/kpp-iosched.c
 perl scripts/checkpatch.pl --patch --strict patches/7.3/0001-kpp-add-KPP-scheduler.patch
 ```
 
-Apply checks pass with patch dry run and with git apply check. Build checks still need your own toolchain run.
+Apply checks pass with patch dry run and with git apply check. The 7.2 patch builds and boots with all six schedulers selectable, verified on a live machine.
 
 ## What still needs testing
 
-Bring up still needs null_blk tests, fio p99 runs, blktrace cadence checks and lockdep runs. Scale checks on large context and CPU counts are still open. Backport series for older trees still need separate review if you need them.
+What still needs testing is null block runs plus blktrace cadence checks plus lockdep runs. Scale checks on large context and CPU counts are still open. Backport builds for older trees still need reports from testers on those trees.
 
 ## Benchmarks
 
