@@ -52,7 +52,7 @@ fig.text(
     "kpp_throttled, 9 kpp_adjust all on WRITE and DISCARD, none cutting "
     "READ depth, so no token throttle explains any gap. kpp mean 37.4k "
     "stable across the window. kyber swings 70.4k to 0.35k. fio 3.42, "
-    "kernel 7.2.6-1-cachyos-kpp with timer hygiene fix, NVME 512GB. "
+    "kernel 7.2.6-1-cachyos-kpp, NVME 512GB. "
     "2026-09-20.",
     ha="center",
     fontsize=7,

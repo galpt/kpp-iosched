@@ -59,9 +59,9 @@ fig.suptitle("Figure 1. KPP vs Kyber, 4k random read, queue depth 8")
 fig.text(
     0.5,
     0.01,
-    "fio 3.42, kernel 7.2.6-1-cachyos-kpp with timer hygiene fix, NVME 512GB on /mnt/data "
+    "fio 3.42, kernel 7.2.6-1-cachyos-kpp, NVME 512GB on /mnt/data "
     "(btrfs zstd:3), direct=1, 4G file, runtime 25s, ramp 3s, n=2, "
-    "bars show mean, error bars show range. 2026-09-20 (fixed kernel).",
+    "bars show mean, error bars show range. 2026-09-20.",
     ha="center",
     fontsize=7,
 )

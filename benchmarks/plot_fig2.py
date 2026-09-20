@@ -7,7 +7,8 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-RAW = pathlib.Path(__file__).parent / "results" / "raw"
+_here = pathlib.Path(__file__).parent
+RAW = _here / "raw" if (_here / "raw").is_dir() else _here / "results" / "raw"
 OUT = pathlib.Path(__file__).parent / "charts" / "fig2_patterns_kyber_vs_kpp.png"
 
 PATTERNS = [

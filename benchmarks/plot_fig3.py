@@ -58,11 +58,11 @@ fig.suptitle("Figure 3. All schedulers, 4k random read, QD8, prepped file")
 fig.text(
     0.5,
     0.01,
-    "fio 3.42, kernel 7.2.6-1-cachyos-kpp with timer hygiene fix, NVME 512GB on /mnt/data "
+    "fio 3.42, kernel 7.2.6-1-cachyos-kpp, NVME 512GB on /mnt/data "
     "(btrfs zstd:3), direct=1, prepped 4G file (seq write once, then reads), "
     "runtime 25s, ramp 3s, n=2, bars mean, error bars range. adios and none "
     "each lost one rep to late session instability, so their means underread. "
-    "kyber and kpp were run back to back on the same file state. 2026-09-20 (fixed kernel).",
+    "kyber and kpp were run back to back on the same file state. 2026-09-20.",
     ha="center",
     fontsize=7,
 )
