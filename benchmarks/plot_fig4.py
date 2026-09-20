@@ -1,4 +1,4 @@
-"""Figure 5: QD32 ABAB n=5, fresh window, traces armed (greenfield)."""
+"""Figure 4: QD32 ABAB n=5, fresh window, traces armed (greenfield)."""
 import json
 import pathlib
 import numpy as np
@@ -7,8 +7,9 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-RAW = pathlib.Path(__file__).parent / "results" / "raw"
-OUT = pathlib.Path(__file__).parent / "charts" / "fig5_qd32_abab_n5.png"
+_here = pathlib.Path(__file__).parent
+RAW = _here / "raw" if (_here / "raw").is_dir() else _here / "results" / "raw"
+OUT = pathlib.Path(__file__).parent / "charts" / "fig4_qd32_abab_n5.png"
 ORDER = [("kyber", 1), ("kpp", 1), ("kyber", 2), ("kpp", 2), ("kyber", 3),
          ("kpp", 3), ("kyber", 4), ("kpp", 4), ("kyber", 5), ("kpp", 5)]
 
@@ -42,7 +43,7 @@ handles = [mpatches.Patch(color="#1f77b4", label="kyber (A)"),
            mpatches.Patch(color="#ff7f0e", label="kpp (B)")]
 ax1.legend(handles=handles, fontsize=9, frameon=True)
 ax2.legend(handles=handles, fontsize=9, frameon=True)
-fig.suptitle("Figure 5. QD32 interleaved ABAB, n=5 per scheduler, fresh window")
+fig.suptitle("Figure 4. QD32 interleaved ABAB, n=5 per scheduler, fresh window")
 fig.text(
     0.5,
     0.01,

@@ -10,7 +10,8 @@ import matplotlib.pyplot as plt
 
 COLORS = ["#1f77b4", "#ff7f0e", "#2ca02c", "#d62728", "#9467bd", "#8c564b"]
 
-RAW = pathlib.Path(__file__).parent / "results" / "raw"
+_here = pathlib.Path(__file__).parent
+RAW = _here / "raw" if (_here / "raw").is_dir() else _here / "results" / "raw"
 OUT = pathlib.Path(__file__).parent / "charts" / "fig3_all_scheds_randread_qd8.png"
 SCHEDS = ["kyber", "kpp", "bfq", "mq-deadline", "adios", "none"]
 

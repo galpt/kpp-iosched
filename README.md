@@ -101,9 +101,9 @@ Figure 3 places all six schedulers side by side on prepped 4k random reads on th
 
 ![Figure 3. All schedulers on 4k random reads with prepped file](benchmarks/charts/fig3_all_scheds_randread_qd8.png)
 
-Figure 5 runs the deep queue pair at queue depth 32 interleaved with 5 reps per scheduler on the fixed kernel with traces armed. KPP reads near 37.4k mean with p99 pinned at 2.44ms every run. Kyber swings from 70.4k down to 0.35k across its reps. Traces show zero throttled events with 9 adjust events all on other domains, so no token throttle explains any gap. At depth the consistency claim holds while peak throughput on a cold file still belongs to Kyber.
+Figure 4 runs the deep queue pair at queue depth 32 interleaved with 5 reps per scheduler on the fixed kernel with traces armed. KPP reads near 37.4k mean with p99 pinned at 2.44ms every run. Kyber swings from 70.4k down to 0.35k across its reps. Traces show zero throttled events with 9 adjust events all on other domains, so no token throttle explains any gap. At depth the consistency claim holds while peak throughput on a cold file still belongs to Kyber.
 
-![Figure 5. Deep queue interleaved window with 5 reps per scheduler](benchmarks/charts/fig5_qd32_abab_n5.png)
+![Figure 4. Deep queue interleaved window with 5 reps per scheduler](benchmarks/charts/fig4_qd32_abab_n5.png)
 
 ## Credits
 
