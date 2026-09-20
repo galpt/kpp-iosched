@@ -1,0 +1,23 @@
+# Patch application leftovers
+*.rej
+*.orig
+
+# Editor backups
+*~
+*.swp
+*.swo
+
+# Python bytecode from plot scripts
+__pycache__/
+*.pyc
+
+# Kernel module build leftovers
+*.ko
+*.mod
+*.mod.c
+*.mod.o
+*.o
+*.cmd
+Module.symvers
+modules.order
+.tmp_versions/
