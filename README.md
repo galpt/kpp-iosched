@@ -93,6 +93,10 @@ Figure 1 compares KPP against Kyber on 4k random reads at queue depth 8 on the f
 
 ![Figure 1. KPP versus Kyber on 4k random reads](benchmarks/charts/fig1_kyber_vs_kpp.png)
 
+Figure 2 widens the same pair across read, write, mixed, and sequential patterns with a fresh file per pattern. Reads are conclusive with KPP trailing Kyber by about 12 percent on random and about 30 percent on sequential. The mixed panel sits near parity with overlapping bars. The write panel shows wide range bars on both schedulers because writes move the filesystem under the test on btrfs with compression, so that mean is reported as variance, not as a win.
+
+![Figure 2. KPP versus Kyber across patterns with fresh files](benchmarks/charts/fig2_patterns_kyber_vs_kpp.png)
+
 Figure 3 places all six schedulers side by side on prepped 4k random reads on the fixed kernel. Kyber sits near 52.4k with tight bars. KPP sits near 46.2k with tight bars. BFQ holds near 29.3k. MQ deadline, adios, and none each show rep level instability with wide bars, so their means underread and their bars tell that story openly. The p99 panel uses a log scale for the same reason.
 
 ![Figure 3. All schedulers on 4k random reads with prepped file](benchmarks/charts/fig3_all_scheds_randread_qd8.png)
