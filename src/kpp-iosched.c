@@ -88,12 +88,14 @@ static const unsigned int kpp_batch_size[] = {
 
 /*
  * KPP bounded-reuse deltas (frozen, not tunables):
- * - LIFO period 8: 7 inserts at head (LIFO/locality) + 1 at tail
- *   (FIFO/anti-starvation). Reuses the sbitmap ilog2(8) shift, no new knob.
+ * - LIFO period 8 on insert: 7 inserts at head (LIFO/locality) + 1 at tail
+ *   (anti-starvation). Reuses the sbitmap ilog2(8) shift, no new knob.
+ * - LIFO period 8 on drain: 7 takes at tail (LIFO/recency) + 1 at head
+ *   (anti-starvation), with AT_HEAD exempt takes bypassing the sequence.
  * - Flush cap 8 kcqs per dispatch.
- * - Timer shard 8 CPUs per run.
- * All deltas are O(1) bounded per-op, preserve FIFO storage (insert position
- * only, no new lists), and keep existing locking (kcq lock / khd lock).
+ * - Timer shard 8 CPUs per run with full cycle evaluate.
+ * All deltas are O(1) bounded per-op, keep list storage (no new lists),
+ * and keep existing locking (kcq lock / khd lock).
  */
 enum {
 	KPP_LIFO_PERIOD = 8,
@@ -164,7 +166,8 @@ struct kpp_ctx_queue {
 	struct list_head rq_list[KPP_NUM_DOMAINS];
 	/*
 	 * Bounded-LIFO sequence per domain (KPP delta, O(1)).
-	 * Protected by @lock; insert position only, FIFO storage preserved.
+	 * Protected by @lock; decides insert position, list storage kept
+	 * (no new lists). Drain order is decided separately by drain_seq.
 	 */
 	u32 lifo_seq[KPP_NUM_DOMAINS];
 } ____cacheline_aligned_in_smp;
@@ -255,8 +258,8 @@ static unsigned int kpp_sched_domain(blk_opf_t opf)
 /*
  * Bounded-LIFO helper (KPP delta, O(1)): true means insert at head.
  * 7 head + 1 tail per KPP_LIFO_PERIOD (mask test, no loop, no alloc, no
- * sleep). Called with kcq->lock held; insert position only, FIFO storage
- * (rq_list) preserved, locking unchanged. BLK_MQ_INSERT_AT_HEAD callers are
+ * sleep). Called with kcq->lock held; decides insert position with list
+ * storage (rq_list) kept and locking unchanged. BLK_MQ_INSERT_AT_HEAD callers are
  * exempt and must not call this helper (no sequence advance). Requeue
  * (token clear via kpp_finish_request) and flush (REQ_OP_FLUSH bypasses the
  * scheduler via blk_mq_request_bypass_insert) never invoke this helper, so
@@ -835,7 +838,7 @@ static void kpp_flush_busy_kcqs(struct kpp_hctx_data *khd,
 	/*
 	 * Cap-8 cursor (KPP delta, O(1) bounded): resume at cursor with wrap,
 	 * stop after KPP_FLUSH_CAP kcqs. Called with khd->lock held (same as
-	 * kyber); per-kcq locking unchanged; FIFO storage preserved (splice
+	 * kyber); per-kcq locking unchanged; list storage kept (splice
 	 * only, no new lists, no alloc, no sleep under lock).
 	 */
 	__sbitmap_for_each_set(&khd->kcq_map[sched_domain], start,
