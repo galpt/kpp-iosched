@@ -186,12 +186,19 @@ struct kpp_queue_data {
 	/*
 	 * Timer shard cursor (KPP delta, O(1)): next possible CPU to process.
 	 * Accessed only from timer_fn (serialized per-queue timer); re-armed
-	 * via mod_timer when more than KPP_TIMER_SHARD CPUs remain.
+	 * via mod_timer while uncovered CPUs remain in this cycle, else rely
+	 * on timer_reduce() from completion path (kyber rhythm).
 	 * Backport note (6.18/7.1/7.2): keep for_each_possible_cpu on 7.3;
 	 * on older trees without for_each_possible_cpu_wrap use manual
 	 * (start + n) % num_possible_cpus() with cpu_possible() guard (stub).
 	 */
 	unsigned int timer_cursor;
+	/*
+	 * Timer covered count (KPP delta, O(1)): CPUs aggregated this cycle.
+	 * Accessed only from timer_fn; reset on full-cycle completion before
+	 * percentile evaluation. kzalloc-zeroed, no locking change.
+	 */
+	unsigned int timer_covered;
 
 	unsigned int latency_buckets[KPP_OTHER][2][KPP_LATENCY_BUCKETS];
 
@@ -361,10 +368,11 @@ static void kpp_timer_fn(struct timer_list *t)
 
 	/*
 	 * Shard-8 (KPP delta, O(1)): sum at most KPP_TIMER_SHARD possible
-	 * CPUs per run, resuming via timer_cursor with wrap. Targets and
-	 * depth logic unchanged. Re-arm soon when more CPUs remain so a full
-	 * cycle completes quickly; otherwise rely on timer_reduce() from the
-	 * completion path. No alloc, no sleep, no loop over queue length.
+	 * CPUs per run, resuming via timer_cursor with wrap. Evaluate only
+	 * on full possible-CPU cycle completion (covered vs num_possible);
+	 * re-arm only while uncovered remain, else rely on timer_reduce()
+	 * from completion path (kyber rhythm). No alloc, no sleep, no loop
+	 * over queue length.
 	 */
 	for_each_possible_cpu_wrap(cpu, start) {
 		struct kpp_cpu_latency *cpu_latency;
@@ -381,8 +389,12 @@ static void kpp_timer_fn(struct timer_list *t)
 		done++;
 		kqd->timer_cursor = (unsigned int)cpu + 1;
 	}
-	if (done >= KPP_TIMER_SHARD && num_possible_cpus() > KPP_TIMER_SHARD)
+	kqd->timer_covered += done;
+	if (kqd->timer_covered < num_possible_cpus()) {
 		mod_timer(&kqd->timer, jiffies + 1);
+		return;
+	}
+	kqd->timer_covered = 0;
 
 	/*
 	 * Check if any domains have a high I/O latency, which might indicate
@@ -463,7 +475,7 @@ static struct kpp_queue_data *kpp_queue_data_alloc(struct request_queue *q)
 		goto err_kqd;
 
 	timer_setup(&kqd->timer, kpp_timer_fn, 0);
-	/* kzalloc zeroes timer_cursor: first shard starts at CPU 0. */
+	/* kzalloc zeroes cursor/covered: first cycle starts at CPU 0. */
 
 	for (i = 0; i < KPP_NUM_DOMAINS; i++) {
 		WARN_ON(!kpp_depth[i]);
@@ -738,6 +750,7 @@ static void kpp_finish_request(struct request *rq)
 	struct kpp_queue_data *kqd = rq->q->elevator->elevator_data;
 
 	rq_clear_domain_token(kqd, rq);
+	rq_clear_at_head(rq);
 }
 
 static void add_latency_sample(struct kpp_cpu_latency *cpu_latency,
