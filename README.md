@@ -87,7 +87,7 @@ Bring up still needs null_blk tests, fio p99 runs, blktrace cadence checks and l
 
 ## Benchmarks
 
-Early numbers come from a live desktop under load on an NVME 512GB drive with kernel 7.2.6 plus KPP. The harness lives in benchmarks with run scripts plus job files plus plot scripts plus raw JSON, so anyone can rerun it. Figures 1, 3, and 5 were measured on the fixed kernel with the timer hygiene fix.
+Early numbers come from a live desktop under load on an NVME 512GB drive with kernel 7.2.6 plus KPP. The harness lives in benchmarks with run scripts plus job files plus plot scripts plus raw JSON, so anyone can rerun it.
 
 Figure 1 compares KPP against Kyber on 4k random reads at queue depth 8 on the fixed kernel. Kyber measured near 52.4k IOPS with p99 near 322us. KPP measured near 46.2k IOPS with p99 near 469us. Both schedulers showed hairline range bars across reps, so the gap is real on this window and favors Kyber at shallow depth. The consistency story for KPP rests on the deep queue window below, not on this panel.
 
