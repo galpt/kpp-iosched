@@ -14,7 +14,7 @@ OUT = pathlib.Path(__file__).parent / "charts" / "fig1_kyber_vs_kpp.png"
 def load(sched):
     iops, p99 = [], []
     for rep in (1, 2):
-        d = json.loads((RAW / f"{sched}_randread_qd8_rep{rep}.json").read_text())
+        d = json.loads((RAW / f"v6_{sched}_randread_qd8_rep{rep}.json").read_text())
         r = d["jobs"][0]["read"]
         iops.append(r["iops"])
         p99.append(r["clat_ns"]["percentile"]["99.000000"] / 1000.0)
@@ -58,9 +58,9 @@ fig.suptitle("Figure 1. KPP vs Kyber, 4k random read, queue depth 8")
 fig.text(
     0.5,
     0.01,
-    "fio 3.42, kernel 7.2.6-1-cachyos-kpp, NVME 512GB on /mnt/data "
+    "fio 3.42, kernel 7.2.6-1-cachyos-kpp with timer hygiene fix, NVME 512GB on /mnt/data "
     "(btrfs zstd:3), direct=1, 4G file, runtime 25s, ramp 3s, n=2, "
-    "bars show mean, error bars show range. 2026-09-20.",
+    "bars show mean, error bars show range. 2026-09-20 (fixed kernel).",
     ha="center",
     fontsize=7,
 )

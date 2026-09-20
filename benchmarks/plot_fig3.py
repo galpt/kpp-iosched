@@ -18,7 +18,7 @@ SCHEDS = ["kyber", "kpp", "bfq", "mq-deadline", "adios", "none"]
 def load(s):
     iops, p99 = [], []
     for rep in (1, 2):
-        d = json.loads((RAW / f"v2_{s}_randread_qd8_rep{rep}.json").read_text())
+        d = json.loads((RAW / f"v6_{s}_randread_qd8_rep{rep}.json").read_text())
         r = d["jobs"][0]["read"]
         iops.append(r["iops"])
         p99.append(r["clat_ns"]["percentile"]["99.000000"] / 1000.0)
@@ -57,11 +57,11 @@ fig.suptitle("Figure 3. All schedulers, 4k random read, QD8, prepped file")
 fig.text(
     0.5,
     0.01,
-    "fio 3.42, kernel 7.2.6-1-cachyos-kpp, NVME 512GB on /mnt/data "
+    "fio 3.42, kernel 7.2.6-1-cachyos-kpp with timer hygiene fix, NVME 512GB on /mnt/data "
     "(btrfs zstd:3), direct=1, prepped 4G file (seq write once, then reads), "
     "runtime 25s, ramp 3s, n=2, bars mean, error bars range. adios and none "
     "each lost one rep to late session instability, so their means underread. "
-    "kyber and kpp were run back to back on the same file state. 2026-09-20.",
+    "kyber and kpp were run back to back on the same file state. 2026-09-20 (fixed kernel).",
     ha="center",
     fontsize=7,
 )

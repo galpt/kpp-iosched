@@ -87,21 +87,19 @@ Bring up still needs null_blk tests, fio p99 runs, blktrace cadence checks and l
 
 ## Benchmarks
 
-Early numbers come from a live desktop under load on an NVME 512GB drive with kernel 7.2.6 plus KPP. The harness lives in benchmarks with run scripts plus job files plus plot scripts plus raw JSON, so anyone can rerun it.
+Early numbers come from a live desktop under load on an NVME 512GB drive with kernel 7.2.6 plus KPP. The harness lives in benchmarks with run scripts plus job files plus plot scripts plus raw JSON, so anyone can rerun it. Figures 1, 3, and 5 were measured on the fixed kernel with the timer hygiene fix.
 
-Figure 1 compares KPP against Kyber on 4k random reads at queue depth 8. KPP measured plus 1.6 percent throughput with minus 2.7 percent p99, and both schedulers showed hairline range bars across reps.
+Figure 1 compares KPP against Kyber on 4k random reads at queue depth 8 on the fixed kernel. Kyber measured near 52.4k IOPS with p99 near 322us. KPP measured near 46.2k IOPS with p99 near 469us. Both schedulers showed hairline range bars across reps, so the gap is real on this window and favors Kyber at shallow depth. The consistency story for KPP rests on the deep queue window below, not on this panel.
 
 ![Figure 1. KPP versus Kyber on 4k random reads](benchmarks/charts/fig1_kyber_vs_kpp.png)
 
-Figure 2 widens the same pair across read, write, mixed, and sequential patterns from the same desktop view. Only the read panel is conclusive. The write and mixed panels show wide range bars on both schedulers because the shared test file fragmented under writes on btrfs with compression, so those means are reported as variance, not as wins.
-
-![Figure 2. KPP versus Kyber across patterns from a desktop under load](benchmarks/charts/fig2_patterns_kyber_vs_kpp.png)
-
-Figure 3 places all six schedulers side by side on prepped 4k random reads. Kyber and KPP sit together near 52k IOPS with tight bars. BFQ trails slightly near 49k. MQ deadline holds steady near 25k. Adios and none each lost one rep to late session instability, so their means underread and their bars tell that story openly. The p99 panel uses a log scale for the same reason.
+Figure 3 places all six schedulers side by side on prepped 4k random reads on the fixed kernel. Kyber sits near 52.4k with tight bars. KPP sits near 46.2k with tight bars. BFQ holds near 29.3k. MQ deadline, adios, and none each show rep level instability with wide bars, so their means underread and their bars tell that story openly. The p99 panel uses a log scale for the same reason.
 
 ![Figure 3. All schedulers on 4k random reads with prepped file](benchmarks/charts/fig3_all_scheds_randread_qd8.png)
 
-The deep queue pair at queue depth 32 degraded symmetrically on both schedulers late in the session, so it is excluded as inconclusive rather than charted as signal. The under load latency claim still needs that rerun on a fresh window with per pattern files.
+Figure 5 runs the deep queue pair at queue depth 32 interleaved with 5 reps per scheduler on the fixed kernel with traces armed. KPP reads near 37.4k mean with p99 pinned at 2.44ms every run. Kyber swings from 70.4k down to 0.35k across its reps. Traces show zero throttled events with 9 adjust events all on other domains, so no token throttle explains any gap. At depth the consistency claim holds while peak throughput on a cold file still belongs to Kyber.
+
+![Figure 5. Deep queue interleaved window with 5 reps per scheduler](benchmarks/charts/fig5_qd32_abab_n5.png)
 
 ## Credits
 
